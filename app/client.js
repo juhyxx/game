@@ -10,7 +10,8 @@ let rl = readline.createInterface({
 	input: process.stdin,
 	output: process.stdout,
 });
-
+let ac = new AbortController();
+let signal = ac.signal;
 
 let client = new net.Socket();
 client.connect(process.env.PORT || 9000, process.env.SERVER);
@@ -29,10 +30,12 @@ client.on('data', (data) => {
 		case "USERLIST":
 			console.log('Lists of oponents:\n', value);
 
-			rl.question(`The game\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nwait\t\tfor challenge waiting\nq\t\tfor quit\n`, (answer) => {
-				if (answer === "wait") {
-					return;
-				}
+			if (signal.aborted) {
+				ac = new AbortController();
+				signal = ac.signal;
+			}
+
+			rl.question(`The game\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`, { signal }, (answer) => {
 				if (answer === "list") {
 					client.write("LIST:");
 					return;
@@ -51,6 +54,7 @@ client.on('data', (data) => {
 			})
 			break;
 		case "STARTGAME":
+			ac.abort()
 			console.log(`Game with "${value}" is starting.`);
 			rl.question("Guess the word:\n", (answer) => {
 				client.write(`GUESS:${answer}`);
@@ -74,15 +78,22 @@ client.on('data', (data) => {
 			}
 
 			break;
+		case "TINYHINT":
+			console.log(value)
+			break;
 		case "PROGRESS":
 			if (value === "ATTEMPT") {
-				console.log(`He tries.`);
+				rl.question("He tries. What about a little hint?'):\n", { signal }, (answer) => {
+					client.write("HINT:" + answer);
+				})
 			}
 			if (value == "GUESS") {
+				ac.abort()
 				console.log(`He guessed it!!!!!`);
 				client.write("LIST:");
 			}
 			if (value == "GIVEUP") {
+				ac.abort()
 				console.log(`He gave it up. Booooo!!!`);
 				client.write("LIST:");
 			}

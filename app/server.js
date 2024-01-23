@@ -95,7 +95,13 @@ server.on("connection", (socket) => {
                     socket.write(`RESULT:WRONG`);
                     currentGame.challenger.socket.write(`PROGRESS:ATTEMPT`);
                 }
+                break;
 
+            case "HINT":
+                let actualGame = games.find(item => item.challenger.socket == socket);
+                if (actualGame && actualGame.player) {
+                    actualGame.player.socket.write(`TINYHINT:${value}`);
+                }
                 break;
             default:
                 console.log('--- Server Received: ' + data);
