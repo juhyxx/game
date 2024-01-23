@@ -2,7 +2,6 @@ import net from 'net';
 import * as http from 'http';
 import { encodeMessage, decodeMessage } from "./protocol.js"
 
-
 let server = net.createServer();
 let sessions = [];
 let games = [];
@@ -12,16 +11,12 @@ const requestListener = function (req, res) {
     res.writeHead(200);
     let users = ''
     let liveGames = ""
-    if (sessions) {
-        users = sessions.map(item => {
-            return `<li>${item.username}</li>`;
-        }).join("")
-    }
-    if (games) {
-        liveGames = games.map(item => {
-            return `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`;
-        }).join("")
-    }
+
+    users = sessions.map(item => `<li>${item.username}</li>`).join("")
+    liveGames = games.map(
+        item => `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`
+    ).join("")
+
     res.end(`<style>*{font-family: sans-serif}</style><h1> The game</h1>
     <h2>Who is there</h2>
     <ul>${users}</ul>
@@ -29,6 +24,7 @@ const requestListener = function (req, res) {
     <ul>${liveGames}</ul>
     <script>setTimeout(()=> {window.location.reload()}, 2000)</script>`);
 };
+
 const webserver = http.createServer(requestListener);
 webserver.listen(8080, "127.0.0.1", (params) => {
     console.log(`Web Server is running on 127.0.0.1:8080 `);
@@ -42,10 +38,7 @@ server.on("connection", (socket) => {
     socket.write(encodeMessage("HI:"));
 
     socket.on("data", (data) => {
-
-
         const [command, value] = decodeMessage(data);
-        //console.debug("COMMAND", command)
 
         switch (command) {
             case "PASSWORD":
@@ -68,7 +61,6 @@ server.on("connection", (socket) => {
                     break;
                 }
                 const users = sessions.map((item, index) => {
-
                     if (item.socket == socket) {
                         return `(${index}) ${item.username} (YOU)`;
                     }
