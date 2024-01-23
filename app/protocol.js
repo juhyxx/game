@@ -11,7 +11,8 @@ let commands = [
     "USERLIST",
     "STARTGAME",
     "RESULT",
-    "AUTHFAIL"
+    "AUTHFAIL",
+    "GAMEFAIL"
 ];
 
 function encodeMessage(message) {

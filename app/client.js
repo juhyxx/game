@@ -56,9 +56,8 @@ client.on('data', (data) => {
 				user = parseInt(user, 10);
 				if (isNaN(user) || !word || word.length == 0) {
 					console.warn(`Incorect selection "${answer}"`);
-					console.info("bye");
-					client.destroy();
-					process.exit();
+					client.write(encodeMessage("LIST:"));
+					return;
 				}
 				client.write(encodeMessage(`START:${user}@${word}`));
 			})
@@ -94,6 +93,11 @@ client.on('data', (data) => {
 		case "TINYHINT":
 			console.info(value)
 			break;
+
+		case "GAMEFAIL":
+			console.info("\nDon't play with yourself!\n")
+			client.write(encodeMessage("LIST:"));
+			break
 
 		case "PROGRESS":
 			if (value === "ATTEMPT") {

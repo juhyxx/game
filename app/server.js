@@ -7,8 +7,6 @@ let server = net.createServer();
 let sessions = [];
 let games = [];
 
-
-
 const requestListener = function (req, res) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.writeHead(200);
@@ -62,18 +60,29 @@ server.on("connection", (socket) => {
                 else {
                     socket.write(encodeMessage("AUTHFAIL:"));
                 }
-
                 break;
+
             case "LIST":
                 if (!isAuthentized(socket)) {
                     socket.write(encodeMessage("AUTHFAIL:"));
-                    return
+                    break;
                 }
-                const users = sessions.map((item, index) => `(${index}) ${item.username}`);
+                const users = sessions.map((item, index) => {
+
+                    if (item.socket == socket) {
+                        return `(${index}) ${item.username} (YOU)`;
+                    }
+                    return `(${index}) ${item.username}`;
+                });
                 socket.write(encodeMessage(`USERLIST:${users.join("\n")}\n`));
 
                 break
             case "START":
+                if (!isAuthentized(socket)) {
+                    socket.write(encodeMessage("AUTHFAIL:"));
+                    break;
+                }
+
                 const [user, word] = value.split("@");
                 let game = {
                     challenger: sessions.find(item => item.socket == socket),
@@ -81,12 +90,20 @@ server.on("connection", (socket) => {
                     word: word,
                     counter: 0
                 }
+                if (game.player === game.challenger) {
+                    socket.write(encodeMessage("GAMEFAIL:"));
+                    break;
+                }
                 console.log(`starting match ${game.challenger.username} -> ${game.player.username}`)
                 games.push(game);
                 game.player.socket.write(encodeMessage(`STARTGAME:${game.challenger.username}`));
 
                 break;
             case "GUESS":
+                if (!isAuthentized(socket)) {
+                    socket.write(encodeMessage("AUTHFAIL:"));
+                    break;
+                }
                 let currentGame = games.find(item => item.player.socket == socket);
                 if (value === "GIVEUP") {
                     currentGame.challenger.socket.write(encodeMessage(`PROGRESS:GIVEUP`));
@@ -111,6 +128,10 @@ server.on("connection", (socket) => {
                 break;
 
             case "HINT":
+                if (!isAuthentized(socket)) {
+                    socket.write(encodeMessage("AUTHFAIL:"));
+                    break;
+                }
                 let actualGame = games.find(item => item.challenger.socket == socket);
                 if (actualGame && actualGame.player) {
                     actualGame.player.socket.write(encodeMessage(`TINYHINT:${value}`));
