@@ -1,13 +1,45 @@
-Well it's that easy!
----
+# How to run 
 
-PROLOG:
+For server run
+
+```sh
+ node app/server
+```
+
+For client run:
+
+```sh
+PASSWORD=iddqd NAME=ReadyPLayerOne node app/client.js
+```
+
+where password could be only [iddqd|idkfa] and name is player name.
+
+There is also possibility to set port and server using environment variables.
+
+The Web server is running on http://localhost:8080.
+
+
+
+# Solution description
+
+### Protocol
+
+The protocol excepts message in form command:data.
+
+Command is solved using binary code of command (1byte) a data lengt is variable.
+
+
+
+
+
+---
+### PROLOG:
 
 The people we are looking for should always strive to understand why things work, why things happen.
 They must posses (or strive to acquire) essential knowledge about the technologies they work with.
 When that's the case - its visible in the work they do.
 
-TEST TASK:
+### TEST TASK:
 
 Using a language of choice from the following:
 
@@ -46,11 +78,11 @@ Optional/bonus: offer a website that displays the progress of all the matches, f
 | Client specifics:
 Must be able to connect to either Unix socket or a TCP port.
 
-RUNTIME:
+### RUNTIME:
 
 Both the client and the server must run on Linux, specifically Ubuntu 22.04, without any containers or virtualization. It will be tested on x86 64bit architecture system.
 
-JUDGEMENT:
+### JUDGEMENT:
 
 The following things play role for passing to the interview stage:
 
@@ -58,9 +90,3 @@ The following things play role for passing to the interview stage:
 - Complexity of the chosen solution.
 - Efficiency of the custom communication protocol.
 - Instructions to run the test task provided -> we will evaluate it on freshly installed Ubuntu 22.04.
-
-# Protocol
-
-
-type
-value

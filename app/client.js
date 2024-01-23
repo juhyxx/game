@@ -3,30 +3,37 @@ console.info("...Starting client")
 
 import net from 'net';
 import readline from 'readline';
+import { encodeMessage, decodeMessage } from "./protocol.js"
 
-
-let id = null;
+let ac = new AbortController();
+let signal = ac.signal;
+let client = new net.Socket();
 let rl = readline.createInterface({
 	input: process.stdin,
 	output: process.stdout,
 });
-let ac = new AbortController();
-let signal = ac.signal;
 
-let client = new net.Socket();
 client.connect(process.env.PORT || 9000, process.env.SERVER);
 
-
 client.on('data', (data) => {
-	const [command, value] = data.toString().split(":");
+	const [command, value] = decodeMessage(data);
 	//console.debug("COMMAND:" + command, "VALUE:" + value)
 	switch (command) {
 		case "HI":
-			client.write("PASSWORD:" + process.env.NAME + "@" + process.env.PASSWORD);
-			break
-		case "AUTHENTIZED":
-			client.write("LIST:");
+			client.write(encodeMessage("PASSWORD:" + process.env.NAME + "@" + process.env.PASSWORD));
 			break;
+
+		case "AUTHENTIZED":
+			client.write(encodeMessage("LIST:"));
+			break;
+
+		case "AUTHFAIL":
+			console.info("wrong password");
+			console.info("bye");
+			client.destroy();
+			process.exit();
+			break;
+
 		case "USERLIST":
 			console.log('Lists of oponents:\n', value);
 
@@ -37,73 +44,75 @@ client.on('data', (data) => {
 
 			rl.question(`The game\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`, { signal }, (answer) => {
 				if (answer === "list") {
-					client.write("LIST:");
+					client.write(encodeMessage("LIST:"));
 					return;
 				}
 				if (answer === "q") {
-					console.info("bye")
-					process.exit()
+					console.info("bye");
+					client.destroy();
+					process.exit();
 				}
 				let [user, word] = answer.split(":")
 				user = parseInt(user, 10);
 				if (isNaN(user) || !word || word.length == 0) {
 					console.warn(`Incorect selection "${answer}"`);
-					process.exit()
+					console.info("bye");
+					client.destroy();
+					process.exit();
 				}
-				client.write(`START:${user}@${word}`);
+				client.write(encodeMessage(`START:${user}@${word}`));
 			})
 			break;
+
 		case "STARTGAME":
 			ac.abort()
 			console.log(`Game with "${value}" is starting.`);
 			rl.question("Guess the word:\n", (answer) => {
-				client.write(`GUESS:${answer}`);
+				client.write(encodeMessage(`GUESS:${answer}`));
 			})
 			break;
+
 		case "RESULT":
 			if (value == "WRONG") {
-				rl.question("Wrong. Guess the word (or type 'giveup'):\n", (answer) => {
-					if (answer === "giveup") {
-						client.write(`GUESS:GIVEUP`);
+				rl.question("Wrong. Guess the word (or type ':giveup'):\n", (answer) => {
+					if (answer === ":giveup") {
+						client.write(encodeMessage(`GUESS:GIVEUP`));
 						return;
 					}
 					else {
-						client.write(`GUESS:${answer}`);
+						client.write(encodeMessage(`GUESS:${answer}`));
 					}
 				})
 			}
 			if (value == "OK") {
 				console.log("YOU GUESSED IT!!!!!");
-				client.write("LIST:");
+				client.write(encodeMessage("LIST:"));
 			}
 
 			break;
+
 		case "TINYHINT":
-			console.log(value)
+			console.info(value)
 			break;
+
 		case "PROGRESS":
 			if (value === "ATTEMPT") {
-				rl.question("He tries. What about a little hint?'):\n", { signal }, (answer) => {
-					client.write("HINT:" + answer);
+				rl.question("He tries. What about a little hint?:\n", { signal }, (answer) => {
+					client.write(encodeMessage("HINT:" + answer));
 				})
 			}
 			if (value == "GUESS") {
 				ac.abort()
-				console.log(`He guessed it!!!!!`);
-				client.write("LIST:");
+				console.info(`He guessed it!!!!!`);
+				client.write(encodeMessage("LIST:"));
 			}
 			if (value == "GIVEUP") {
 				ac.abort()
 				console.log(`He gave it up. Booooo!!!`);
-				client.write("LIST:");
+				client.write(encodeMessage("LIST:"));
 			}
-
 			break;
-		default:
-		//console.log('--- Received: \n' + data);
 	}
-
-
 });
 
 client.on('close', () => {
@@ -113,6 +122,13 @@ client.on('close', () => {
 
 client.on('error', (err) => {
 	console.log('--- error', err);
+});
+
+process.stdin.resume();
+process.on('SIGINT', () => {
+	console.info("bye");
+	client.destroy();
+	process.exit();
 });
 
 
