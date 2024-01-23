@@ -61,6 +61,6 @@ The following things play role for passing to the interview stage:
 
 # Protocol
 
-UUID
+
 type
 value

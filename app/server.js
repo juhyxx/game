@@ -1,31 +1,121 @@
 import net from 'net';
+import * as http from 'http';
 
-import { v4 as uuidv4 } from 'uuid';
+let server = net.createServer();
+let sessions = [];
+let games = [];
 
-let server = net.createServer((socket) => {
-    socket.write('Init\r\n');
-    socket.pipe(socket);
+
+const requestListener = function (req, res) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.writeHead(200);
+    let users = ''
+    let liveGames = ""
+    if (sessions) {
+        users = sessions.map(item => {
+            return `<li>${item.username}</li>`;
+        }).join("")
+    }
+    if (games) {
+        liveGames = games.map(item => {
+            return `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`;
+        }).join("")
+    }
+    res.end(`<h1> The game</h1>
+    <h2>Who is there</h2>
+    <ul>${users}</ul>
+    <h2>Who is playing</h2>
+    <ul>${liveGames}</ul>
+    <script>setTimeout(()=> {window.location.reload()}, 2000)</script>`);
+};
+const webserver = http.createServer(requestListener);
+webserver.listen(8080, "127.0.0.1", (params) => {
+    console.log(`Web Server is running on 127.0.0.1:8080 `);
 });
 
 server.on("connection", (socket) => {
-    socket.write("HI");
+    socket.write("HI:");
 
-    console.log("connected")
     socket.on("data", (data) => {
-        if (data == "PASSWORD:iddqd" || data == "PASSWORD:idkfa") {
-            socket.write("ID:" + uuidv4());
-        } else {
-            socket.write("wrong password");
+        const [command, value] = data.toString().split(":");
+        console.debug("COMMAND", command)
+
+        switch (command) {
+            case "PASSWORD":
+                const [username, password] = value.split("@");
+                if (["iddqd", "idkfa"].includes(password)) {
+                    sessions.push({ username, socket })
+                    socket.write(`AUTHENTIZED:${username}`);
+
+                    let users = sessions.map((item, index) => `(${index}) ${item.username}`).join("\n");
+                    console.debug("Logged users:\n", users)
+                }
+                else {
+                    socket.write("wrong password");
+                }
+
+                break;
+            case "LIST":
+                const users = sessions.map((item, index) => `(${index}) ${item.username}`);
+                socket.write(`USERLIST:${users.join("\n")}\n`);
+
+                break
+            case "START":
+                const [user, word] = value.split("@");
+                let game = {
+                    challenger: sessions.find(item => item.socket == socket),
+                    player: sessions[parseInt(user, 10)],
+                    word: word,
+                    counter: 0
+                }
+                console.log(`starting match ${game.challenger.username} -> ${game.player.username}`)
+                games.push(game);
+                game.player.socket.write(`STARTGAME:${game.challenger.username}`);
+
+                break;
+            case "GUESS":
+                let currentGame = games.find(item => item.player.socket == socket);
+                if (value === "GIVEUP") {
+                    currentGame.challenger.socket.write(`PROGRESS:GIVEUP`);
+                    const index = games.findIndex(item => item.player.socket == socket);
+                    games.splice(index, 1);
+
+                    const users = sessions.map((item, index) => `(${index}) ${item.username}`);
+                    socket.write(`USERLIST: ${users.join("\n")}\n`);
+                    break;
+                }
+                if (currentGame.word == value) {
+                    socket.write(`RESULT: OK`);
+                    currentGame.challenger.socket.write(`PROGRESS:GUESS`);
+                    const index = games.findIndex(item => item.player.socket == socket);
+                    games.splice(index, 1);
+                }
+                else {
+                    currentGame.counter += 1;
+                    socket.write(`RESULT:WRONG`);
+                    currentGame.challenger.socket.write(`PROGRESS:ATTEMPT`);
+                }
+
+                break;
+            default:
+                console.log('--- Server Received: ' + data);
+
         }
-        socket.pipe(socket);
-        console.log('Server Received: ' + data);
     })
+
+    socket.on('close', function () {
+        let index = sessions.findIndex(item => item.socket == socket);
+        if (index) {
+            sessions.splice(index, 1);
+            console.log("disconect", index);
+        }
+    });
 })
 
 server.on('error', (err) => {
     throw err;
 });
 
-server.listen(process.env.PORT, () => {
+server.listen(process.env.PORT || 9000, () => {
     console.log('server listening to %j', server.address());
 });

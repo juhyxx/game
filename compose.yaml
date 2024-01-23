@@ -20,6 +20,7 @@ services:
       - PASSWORD=iddqd
       - PORT=9000
       - SERVER=server
+      - NAME=playerA
 
   b:
     build: .
@@ -32,6 +33,7 @@ services:
       - PASSWORD=idkfa
       - PORT=9000
       - SERVER=server
+      - NAME=playerB
 
   c:
     build: .
@@ -44,3 +46,4 @@ services:
       - PASSWORD=
       - PORT=9000
       - SERVER=server
+      - NAME=playerC
