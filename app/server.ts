@@ -1,13 +1,10 @@
 import * as net from 'net';
 import * as http from 'http';
 import { encodeMessage, decodeMessage } from "./protocol";
+import { session, Sessions } from "./sessions";
 import * as fs from 'fs';
 
 
-type session = {
-    socket: any;
-    username: string;
-}
 type game = {
     challenger: session;
     player: session;
@@ -15,15 +12,10 @@ type game = {
     counter: number;
 }
 let server = net.createServer();
-let sessions: session[] = [];
 let games: game[] = [];
 
-function isAuthentized(socket: net.Socket): boolean {
-    return !!sessions.find(item => item.socket === socket)
-}
-function getUsers(): string {
-    return sessions.map((item, index) => `(${index}) ${item.username}`).join("\n");
-}
+
+let sessionStorage = new Sessions()
 
 server.on("connection", (socket: net.Socket) => {
     socket.write(encodeMessage("HI:"));
@@ -35,10 +27,9 @@ server.on("connection", (socket: net.Socket) => {
             case "PASSWORD":
                 const [username, password] = value.split("@");
                 if (["iddqd", "idkfa"].includes(password)) {
-                    const session: session = { username, socket }
-                    sessions.push(session)
+                    sessionStorage.add({ username, socket })
                     socket.write(encodeMessage(`AUTHENTIZED:${username}`));
-                    console.debug("Logged users:\n", getUsers())
+                    console.debug("Logged users:\n", sessionStorage.getUsers().join("\n"))
                 }
                 else {
                     socket.write(encodeMessage("AUTHFAIL:"));
@@ -46,33 +37,27 @@ server.on("connection", (socket: net.Socket) => {
                 break;
 
             case "LIST":
-                if (!isAuthentized(socket)) {
+                if (!sessionStorage.isAuthentized(socket)) {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
-                const users: string[] = sessions.map((item, index) => {
-                    if (item.socket == socket) {
-                        return `(${index}) ${item.username} (YOU)`;
-                    }
-                    return `(${index}) ${item.username}`;
-                });
-                socket.write(encodeMessage(`USERLIST:${getUsers()}\n`));
+                socket.write(encodeMessage(`USERLIST:${sessionStorage.getUsers().join("\n")}\n`));
 
                 break
             case "START":
-                if (!isAuthentized(socket)) {
+                if (!sessionStorage.isAuthentized(socket)) {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
 
                 const [user, word]: string[] = value.split("@");
-                const challenger: session | undefined = sessions.find(item => item.socket == socket)
+                const challenger: session | undefined = sessionStorage.getSessionBySocket(socket)
                 if (!challenger) {
                     break;
                 }
                 const game: game = {
                     challenger: challenger,
-                    player: sessions[parseInt(user, 10)],
+                    player: sessionStorage.getSessionByIndex(parseInt(user, 10)),
                     word: word,
                     counter: 0
                 }
@@ -83,10 +68,10 @@ server.on("connection", (socket: net.Socket) => {
                 console.log(`starting match ${game.challenger.username} -> ${game.player.username}`)
                 games.push(game);
                 game.player.socket.write(encodeMessage(`STARTGAME:${game.challenger.username}`));
-
                 break;
+
             case "GUESS":
-                if (!isAuthentized(socket)) {
+                if (!sessionStorage.isAuthentized(socket)) {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
@@ -100,7 +85,9 @@ server.on("connection", (socket: net.Socket) => {
                     games.splice(index, 1);
 
 
-                    socket.write(encodeMessage(`USERLIST: ${getUsers()}\n`));
+                    socket.write(encodeMessage(`USERLIST: ${sessionStorage.getUsers().join("\n")}\n`));
+
+                    console.log(`ending match ${currentGame.challenger.username} -> ${currentGame.player.username}`)
                     break;
                 }
                 if (currentGame.word == value) {
@@ -108,6 +95,7 @@ server.on("connection", (socket: net.Socket) => {
                     currentGame.challenger.socket.write(encodeMessage(`PROGRESS:GUESS`));
                     const index: number = games.findIndex(item => item.player.socket == socket);
                     games.splice(index, 1);
+                    console.log(`ending match ${currentGame.challenger.username} -> ${currentGame.player.username}`)
                 }
                 else {
                     currentGame.counter += 1;
@@ -117,7 +105,7 @@ server.on("connection", (socket: net.Socket) => {
                 break;
 
             case "HINT":
-                if (!isAuthentized(socket)) {
+                if (!sessionStorage.isAuthentized(socket)) {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
@@ -133,10 +121,7 @@ server.on("connection", (socket: net.Socket) => {
     })
 
     socket.on('close', function () {
-        let index: number = sessions.findIndex(item => item.socket == socket);
-        if (index > -1) {
-            sessions.splice(index, 1);
-        }
+        sessionStorage.removeUser(socket)
     });
 })
 
@@ -162,7 +147,7 @@ const webserver = http.createServer((req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.writeHead(200);
 
-    let users: string = sessions.map(item => `<li>${item.username}</li>`).join("")
+    let users: string = sessionStorage.getUsers().map(item => `<li>${item}</li>`).join("")
     let liveGames: string = games.map(
         item => `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`
     ).join("")
