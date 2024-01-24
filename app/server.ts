@@ -1,31 +1,44 @@
-import net from 'net';
+import * as net from 'net';
 import * as http from 'http';
-import { encodeMessage, decodeMessage } from "./protocol.js";
-import fs from 'fs';
+import { encodeMessage, decodeMessage } from "./protocol";
+import * as fs from 'fs';
 
+
+type session = {
+    socket: any;
+    username: string;
+}
+type game = {
+    challenger: session;
+    player: session;
+    word: string;
+    counter: number;
+}
 let server = net.createServer();
-let sessions = [];
-let games = [];
+let sessions: session[] = [];
+let games: game[] = [];
 
-function isAuthentized(socket) {
-    return sessions.find(item => item.socket === socket)
+function isAuthentized(socket: net.Socket): boolean {
+    return !!sessions.find(item => item.socket === socket)
+}
+function getUsers(): string {
+    return sessions.map((item, index) => `(${index}) ${item.username}`).join("\n");
 }
 
-server.on("connection", (socket) => {
+server.on("connection", (socket: net.Socket) => {
     socket.write(encodeMessage("HI:"));
 
-    socket.on("data", (data) => {
-        const [command, value] = decodeMessage(data);
+    socket.on("data", (data: Buffer) => {
+        const [command, value]: string[] = decodeMessage(data);
 
         switch (command) {
             case "PASSWORD":
                 const [username, password] = value.split("@");
                 if (["iddqd", "idkfa"].includes(password)) {
-                    sessions.push({ username, socket })
+                    const session: session = { username, socket }
+                    sessions.push(session)
                     socket.write(encodeMessage(`AUTHENTIZED:${username}`));
-
-                    let users = sessions.map((item, index) => `(${index}) ${item.username}`).join("\n");
-                    console.debug("Logged users:\n", users)
+                    console.debug("Logged users:\n", getUsers())
                 }
                 else {
                     socket.write(encodeMessage("AUTHFAIL:"));
@@ -37,13 +50,13 @@ server.on("connection", (socket) => {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
-                const users = sessions.map((item, index) => {
+                const users: string[] = sessions.map((item, index) => {
                     if (item.socket == socket) {
                         return `(${index}) ${item.username} (YOU)`;
                     }
                     return `(${index}) ${item.username}`;
                 });
-                socket.write(encodeMessage(`USERLIST:${users.join("\n")}\n`));
+                socket.write(encodeMessage(`USERLIST:${getUsers()}\n`));
 
                 break
             case "START":
@@ -52,9 +65,13 @@ server.on("connection", (socket) => {
                     break;
                 }
 
-                const [user, word] = value.split("@");
-                let game = {
-                    challenger: sessions.find(item => item.socket == socket),
+                const [user, word]: string[] = value.split("@");
+                const challenger: session | undefined = sessions.find(item => item.socket == socket)
+                if (!challenger) {
+                    break;
+                }
+                const game: game = {
+                    challenger: challenger,
                     player: sessions[parseInt(user, 10)],
                     word: word,
                     counter: 0
@@ -73,20 +90,23 @@ server.on("connection", (socket) => {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
-                let currentGame = games.find(item => item.player.socket == socket);
+                const currentGame = games.find(item => item.player.socket == socket);
+                if (!currentGame) {
+                    break;
+                }
                 if (value === "GIVEUP") {
                     currentGame.challenger.socket.write(encodeMessage(`PROGRESS:GIVEUP`));
-                    const index = games.findIndex(item => item.player.socket == socket);
+                    const index: number = games.findIndex(item => item.player.socket == socket);
                     games.splice(index, 1);
 
-                    const users = sessions.map((item, index) => `(${index}) ${item.username}`);
-                    socket.write(encodeMessage(`USERLIST: ${users.join("\n")}\n`));
+
+                    socket.write(encodeMessage(`USERLIST: ${getUsers()}\n`));
                     break;
                 }
                 if (currentGame.word == value) {
                     socket.write(encodeMessage(`RESULT:OK`));
                     currentGame.challenger.socket.write(encodeMessage(`PROGRESS:GUESS`));
-                    const index = games.findIndex(item => item.player.socket == socket);
+                    const index: number = games.findIndex(item => item.player.socket == socket);
                     games.splice(index, 1);
                 }
                 else {
@@ -101,7 +121,7 @@ server.on("connection", (socket) => {
                     socket.write(encodeMessage("AUTHFAIL:"));
                     break;
                 }
-                let actualGame = games.find(item => item.challenger.socket == socket);
+                const actualGame: game | undefined = games.find(item => item.challenger.socket == socket);
                 if (actualGame && actualGame.player) {
                     actualGame.player.socket.write(encodeMessage(`TINYHINT:${value}`));
                 }
@@ -113,7 +133,7 @@ server.on("connection", (socket) => {
     })
 
     socket.on('close', function () {
-        let index = sessions.findIndex(item => item.socket == socket);
+        let index: number = sessions.findIndex(item => item.socket == socket);
         if (index > -1) {
             sessions.splice(index, 1);
         }
@@ -125,7 +145,8 @@ server.on('error', (err) => {
 });
 
 if (process.env.USOCKET) {
-    const socketPath = '/tmp/unixSocket';
+    const socketPath: string = '/tmp/unixSocket';
+
     fs.unlinkSync(socketPath);
     server.listen(socketPath, () => {
         console.log(`Unix socker server is listening ${socketPath}`);
@@ -140,11 +161,9 @@ else {
 const webserver = http.createServer((req, res) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.writeHead(200);
-    let users = ''
-    let liveGames = ""
 
-    users = sessions.map(item => `<li>${item.username}</li>`).join("")
-    liveGames = games.map(
+    let users: string = sessions.map(item => `<li>${item.username}</li>`).join("")
+    let liveGames: string = games.map(
         item => `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`
     ).join("")
 
@@ -158,6 +177,6 @@ const webserver = http.createServer((req, res) => {
     );
 });
 
-webserver.listen(8080, "127.0.0.1", (params) => {
+webserver.listen(8080, () => {
     console.log(`Web Server is running on 127.0.0.1:8080 `);
 });

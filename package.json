@@ -1,12 +1,17 @@
 {
   "name": "game",
   "version": "1.0.0",
-  "description": "Well it's that easy! ---",
+  "description": "## Server",
   "main": "index.js",
-  "type": "module",
+  "dependencies": {
+    "typescript": "^5.3.3"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.11.6"
+  }
 }

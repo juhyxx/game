@@ -15,7 +15,7 @@ let commands = [
     "GAMEFAIL"
 ];
 
-function encodeMessage(message) {
+function encodeMessage(message: string) {
     const [command, value] = message.split(":");
     // console.log(command)
     const encodedValue = Buffer.from(value, 'latin1');
@@ -26,9 +26,9 @@ function encodeMessage(message) {
     return Buffer.concat([encodedCommand, encodedValue]);
 }
 
-function decodeMessage(encoded) {
+function decodeMessage(encoded: Buffer) {
     let index = encoded.slice(0, 1).readInt8(0);
-    let value = encoded.slice(1, encoded.lenght).toString();
+    let value = encoded.slice(1, encoded.length).toString();
 
     return [commands[index], value];
 

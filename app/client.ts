@@ -3,7 +3,8 @@ console.info("...Starting client")
 
 import net from 'net';
 import readline from 'readline';
-import { encodeMessage, decodeMessage } from "./protocol.js"
+
+import { encodeMessage, decodeMessage } from "./protocol"
 
 let ac = new AbortController();
 let signal = ac.signal;
@@ -18,13 +19,12 @@ if (process.env.USOCKET) {
 	client.connect(socketPath)
 }
 else {
-	client.connect(process.env.PORT || 9000, process.env.SERVER);
+	client.connect(process.env.PORT || "9000");
 }
 
 
-client.on('data', (data) => {
-	const [command, value] = decodeMessage(data);
-	//console.debug("COMMAND:" + command, "VALUE:" + value)
+client.on('data', (data: Buffer) => {
+	const [command, value]: string[] = decodeMessage(data);
 	switch (command) {
 		case "HI":
 			client.write(encodeMessage("PASSWORD:" + process.env.NAME + "@" + process.env.PASSWORD));
@@ -49,25 +49,26 @@ client.on('data', (data) => {
 				signal = ac.signal;
 			}
 
-			rl.question(`*** The game ***\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`, { signal }, (answer) => {
-				if (answer === "list") {
-					client.write(encodeMessage("LIST:"));
-					return;
-				}
-				if (answer === "q") {
-					console.info("BYE");
-					client.destroy();
-					process.exit();
-				}
-				let [user, word] = answer.split(":")
-				user = parseInt(user, 10);
-				if (isNaN(user) || !word || word.length == 0) {
-					console.warn(`Incorect selection "${answer}"`);
-					client.write(encodeMessage("LIST:"));
-					return;
-				}
-				client.write(encodeMessage(`START:${user}@${word}`));
-			})
+			rl.question(`*** The game ***\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`,
+				{ signal }, (answer: string) => {
+					if (answer === "list") {
+						client.write(encodeMessage("LIST:"));
+						return;
+					}
+					if (answer === "q") {
+						console.info("BYE");
+						client.destroy();
+						process.exit();
+					}
+					const [user, word]: string[] = answer.split(":")
+					const index = parseInt(user, 10);
+					if (isNaN(index) || !word || word.length == 0) {
+						console.warn(`Incorect selection "${answer}"`);
+						client.write(encodeMessage("LIST:"));
+						return;
+					}
+					client.write(encodeMessage(`START:${index}@${word}`));
+				})
 			break;
 
 		case "STARTGAME":
