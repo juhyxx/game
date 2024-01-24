@@ -3,13 +3,13 @@
 ## Server
 
 ```sh
- node app/server
+ npx ts-node app/server.ts
 ```
 
 ## Client
 
 ```sh
-PASSWORD=iddqd NAME=ReadyPLayerOne node app/client.js
+PASSWORD=iddqd NAME=ReadyPLayerOne  npx ts-node app/client.js
 ```
 
 *where the PASSWORD could be only [**iddqd**|**idkfa**] and the NAME is the player's name.*
@@ -21,13 +21,13 @@ There is also a possibility to set **PORT**  using environment variables.
 For using unix socket set environment variable **USOCKET**:
 
 ```sh
-USOCKET=true node app/server
+USOCKET=true  npx ts-node app/server.ts
 ```
 
 same with client
 
 ```sh
-USOCKET=true PASSWORD=iddqd NAME=ReadyPLayerOne node app/client.js
+USOCKET=true PASSWORD=iddqd NAME=ReadyPLayerOne  npx ts-node app/client.ts
 ```
 
 The Web server is running on http://localhost:8080.
