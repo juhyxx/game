@@ -13,7 +13,14 @@ let rl = readline.createInterface({
 	output: process.stdout,
 });
 
-client.connect(process.env.PORT || 9000, process.env.SERVER);
+if (process.env.USOCKET) {
+	const socketPath = '/tmp/unixSocket';
+	client.connect(socketPath)
+}
+else {
+	client.connect(process.env.PORT || 9000, process.env.SERVER);
+}
+
 
 client.on('data', (data) => {
 	const [command, value] = decodeMessage(data);
@@ -29,26 +36,26 @@ client.on('data', (data) => {
 
 		case "AUTHFAIL":
 			console.info("wrong password");
-			console.info("bye");
+			console.info("BYE");
 			client.destroy();
 			process.exit();
 			break;
 
 		case "USERLIST":
-			console.log('Lists of oponents:\n', value);
+			console.log('*** Lists of oponents ***:\n', value);
 
 			if (signal.aborted) {
 				ac = new AbortController();
 				signal = ac.signal;
 			}
 
-			rl.question(`The game\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`, { signal }, (answer) => {
+			rl.question(`*** The game ***\n1:word\t\tchoose user and word\nlist\t\tfor list of users\nq\t\tfor quit\n`, { signal }, (answer) => {
 				if (answer === "list") {
 					client.write(encodeMessage("LIST:"));
 					return;
 				}
 				if (answer === "q") {
-					console.info("bye");
+					console.info("BYE");
 					client.destroy();
 					process.exit();
 				}
@@ -84,7 +91,7 @@ client.on('data', (data) => {
 				})
 			}
 			if (value == "OK") {
-				console.log("YOU GUESSED IT!!!!!");
+				console.log("\n*** YOU GUESSED IT!!!!! ***\n");
 				client.write(encodeMessage("LIST:"));
 			}
 
@@ -95,7 +102,7 @@ client.on('data', (data) => {
 			break;
 
 		case "GAMEFAIL":
-			console.info("\nDon't play with yourself!\n")
+			console.info("\n*** Don't play with yourself! ***\n")
 			client.write(encodeMessage("LIST:"));
 			break
 
@@ -107,12 +114,12 @@ client.on('data', (data) => {
 			}
 			if (value == "GUESS") {
 				ac.abort()
-				console.info(`He guessed it!!!!!`);
+				console.info(`\n*** He got it!!!!! ***\n`);
 				client.write(encodeMessage("LIST:"));
 			}
 			if (value == "GIVEUP") {
 				ac.abort()
-				console.log(`He gave it up. Booooo!!!`);
+				console.log(`\n*** He gave it up. Booooo!!! ***\n`);
 				client.write(encodeMessage("LIST:"));
 			}
 			break;
@@ -125,12 +132,13 @@ client.on('close', () => {
 });
 
 client.on('error', (err) => {
+	console.log("Server not found")
 	console.log('--- error', err);
 });
 
 process.stdin.resume();
 process.on('SIGINT', () => {
-	console.info("bye");
+	console.info("BYE");
 	client.destroy();
 	process.exit();
 });

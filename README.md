@@ -1,32 +1,44 @@
-# How to run 
+# Game - How to run 
 
-For server run
+## Server
 
 ```sh
  node app/server
 ```
 
-For client run:
+## Client
 
 ```sh
 PASSWORD=iddqd NAME=ReadyPLayerOne node app/client.js
 ```
 
-where password could be only [iddqd|idkfa] and name is player name.
+*where the PASSWORD could be only [**iddqd**|**idkfa**] and the NAME is the player's name.*
 
-There is also possibility to set port and server using environment variables.
+There is also a possibility to set **PORT**  using environment variables.
+
+## Unix socket
+
+For using unix socket set environment variable **USOCKET**:
+
+```sh
+USOCKET=true node app/server
+```
+
+same with client
+
+```sh
+USOCKET=true PASSWORD=iddqd NAME=ReadyPLayerOne node app/client.js
+```
 
 The Web server is running on http://localhost:8080.
-
-
 
 # Solution description
 
 ### Protocol
 
-The protocol excepts message in form command:data.
+The protocol accepts messages in the form **command:data.**
 
-Command is solved using binary code of command (1byte) a data lengt is variable.
+The command is solved using the binary code of the command (1byte) a data length is variable.
 
 
 
@@ -53,7 +65,7 @@ They will communicate over a TCP socket and the exact "protocol" on top of that 
 Note: using just utf8 strings will have a negative impact on the judgement (hint - custom binary protocol is expected).
 
 Upon connection - the server must send a message to the client - initiating the communication.
-Client upon receiving it - answers to the server with a password.
+The client upon receiving it - answers to the server with a password.
 This initial exchange then ends with server either disconnecting the client (wrong password) or assigning the client an ID and sending the ID back to the client.
 
 At this moment, the server answers to any requests the client sends to the server. For unknown requests, the server must respond as well, such that client can identify it as an error.

@@ -1,34 +1,11 @@
 import net from 'net';
 import * as http from 'http';
-import { encodeMessage, decodeMessage } from "./protocol.js"
+import { encodeMessage, decodeMessage } from "./protocol.js";
+import fs from 'fs';
 
 let server = net.createServer();
 let sessions = [];
 let games = [];
-
-const requestListener = function (req, res) {
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.writeHead(200);
-    let users = ''
-    let liveGames = ""
-
-    users = sessions.map(item => `<li>${item.username}</li>`).join("")
-    liveGames = games.map(
-        item => `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`
-    ).join("")
-
-    res.end(`<style>*{font-family: sans-serif}</style><h1> The game</h1>
-    <h2>Who is there</h2>
-    <ul>${users}</ul>
-    <h2>Who is playing</h2>
-    <ul>${liveGames}</ul>
-    <script>setTimeout(()=> {window.location.reload()}, 2000)</script>`);
-};
-
-const webserver = http.createServer(requestListener);
-webserver.listen(8080, "127.0.0.1", (params) => {
-    console.log(`Web Server is running on 127.0.0.1:8080 `);
-});
 
 function isAuthentized(socket) {
     return sessions.find(item => item.socket === socket)
@@ -139,7 +116,6 @@ server.on("connection", (socket) => {
         let index = sessions.findIndex(item => item.socket == socket);
         if (index > -1) {
             sessions.splice(index, 1);
-            console.log("disconect", index);
         }
     });
 })
@@ -148,6 +124,40 @@ server.on('error', (err) => {
     throw err;
 });
 
-server.listen(process.env.PORT || 9000, () => {
-    console.log('server listening to %j', server.address());
+if (process.env.USOCKET) {
+    const socketPath = '/tmp/unixSocket';
+    fs.unlinkSync(socketPath);
+    server.listen(socketPath, () => {
+        console.log(`Unix socker server is listening ${socketPath}`);
+    });
+}
+else {
+    server.listen(process.env.PORT || 9000, () => {
+        console.log('server listening to %j', server.address());
+    });
+}
+
+const webserver = http.createServer((req, res) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.writeHead(200);
+    let users = ''
+    let liveGames = ""
+
+    users = sessions.map(item => `<li>${item.username}</li>`).join("")
+    liveGames = games.map(
+        item => `<li>${item.challenger.username} -> ${item.player.username} Atempts: ${item.counter}</li>`
+    ).join("")
+
+    res.end(
+        `<style>*{font-family: sans-serif}</style><h1> The game</h1>
+        <h2>Who is there</h2>
+        <ul>${users}</ul>
+        <h2>Who is playing</h2>
+        <ul>${liveGames}</ul>
+        <script>setTimeout(()=> {window.location.reload()}, 2000)</script>`
+    );
+});
+
+webserver.listen(8080, "127.0.0.1", (params) => {
+    console.log(`Web Server is running on 127.0.0.1:8080 `);
 });
